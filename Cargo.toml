@@ -1,0 +1,19 @@
+[package]
+name = "tdigest_ext"
+version = "0.1.0"
+edition = "2018"
+
+[lib]
+name = "tdigest_ext"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.20", features = ["extension-module", "abi3-py37"] }
+numpy = { path = "../.." }
+num-traits = "0.2.17"
+glidesort = "0.1.2"
+
+[workspace]
+
+[profile.release]
+debug = true
