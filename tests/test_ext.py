@@ -1,13 +1,6 @@
 import numpy as np
-from rust_ext import (
-    head,
-    axpy,
-    conj,
-    mult,
-    extract,
-    add_minutes_to_seconds,
-    polymorphic_add,
-)
+from rust_ext import (add_minutes_to_seconds, axpy, conj, extract, head, mult,
+                      polymorphic_add)
 
 
 def test_head():

@@ -1,11 +1,9 @@
-import time
 from dataclasses import dataclass
 from typing import Iterator, Tuple
 
 import numpy as np
-from joblib import Parallel, delayed
 
-import tdigest_ext
+from .tdigest_rs import create_from_array
 
 
 @dataclass
@@ -29,10 +27,14 @@ class TDigest:
         return len(self.means)
 
     @classmethod
-    def create(cls, arr: np.ndarray, delta: float) -> "TDigest":
-        arr.sort()
-        means, weights = tdigest_ext.create_from_array(delta, arr)
+    def create(cls, arr: np.ndarray, delta: float, sort_in_place: bool = False) -> "TDigest":
+        if sort_in_place:
+            arr.sort()
+        means, weights = create_from_array(arr, delta, not sort_in_place)
         return cls(means=means, weights=weights, delta=delta)
+
+    def merge(self, other: "TDigest") -> "TDigest":
+        raise NotImplementedError("merge method not implemented")
 
     def quantile(self, x: float) -> float:
         if len(self.means) < 3:
@@ -53,23 +55,3 @@ class TDigest:
             cum_weight += weight
 
         return _mean
-
-
-quantile = 0.1
-n = 16_000
-n_arrays = 5000
-
-arrays = [np.random.randn(n).astype(np.float32) for i in range(n_arrays)]
-
-t0 = time.time()
-tdigests = Parallel(backend="threading", verbose=3, n_jobs=-1)(
-    delayed(TDigest.create)(arr=arr, delta=10.0) for arr in arrays
-)
-print(f"Total running time parallel: {time.time() - t0}")
-
-# t0 = time.time()
-# for arr in arrays:
-#     tdigest = TDigest.create(arr=arr, delta=10.0)
-#     # q = tdigest.quantile(0.5)
-
-# print(f"Total running time: {time.time() - t0}")

@@ -25,10 +25,11 @@ struct TDigest {
 
 
 impl TDigest {
-    fn from_vec(mut vec: Vec<f32>, delta: f32) -> TDigest
+    fn from_vec(mut vec: Vec<f32>, delta: f32, sort: bool) -> TDigest
     {
-        // vec.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        // glidesort::sort_by(&mut vec|a, b| a.partial_cmp(b).unwrap());
+        if sort {
+            vec.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        }
 
         let n = vec.len();
         let percentile_increment: f32 = 1.0 / n as f32;
@@ -63,10 +64,10 @@ impl TDigest {
 
 
 #[pymodule]
-fn tdigest_ext<'py>(_py: Python<'py>, m: &'py PyModule) -> PyResult<()> {
-    fn create_from_array(delta: f32, x: ArrayViewD<'_, f32>) -> (Vec<f32>, Vec<i64>) {
+fn tdigest_rs<'py>(_py: Python<'py>, m: &'py PyModule) -> PyResult<()> {
+    fn create_from_array(x: ArrayViewD<'_, f32>, delta: f32, sort: bool) -> (Vec<f32>, Vec<i64>) {
         let vec = x.into_owned().into_raw_vec();
-        let tdigest = TDigest::from_vec(vec.clone(), delta);
+        let tdigest = TDigest::from_vec(vec.clone(), delta, sort);
         (tdigest.means, tdigest.weights)
     }
 
@@ -74,11 +75,12 @@ fn tdigest_ext<'py>(_py: Python<'py>, m: &'py PyModule) -> PyResult<()> {
     #[pyo3(name = "create_from_array")]
     fn create_from_array_py<'py>(
         py: Python<'py>,
-        delta: f32,
         x: PyReadonlyArrayDyn<'py, f32>,
+        delta: f32,
+        sort: bool,
     ) -> (&'py PyArrayDyn<f32>, &'py PyArrayDyn<i64>) {
         let x = x.as_array();
-        let (means, weights) = py.allow_threads(|| create_from_array(delta, x));
+        let (means, weights) = py.allow_threads(|| create_from_array(x, delta, sort));
         let means = PyArray::from_vec(py, means);
         let weights = PyArray::from_vec(py, weights);
         (means.to_dyn(), weights.to_dyn())

@@ -117,6 +117,8 @@ dependencies = [
 [[package]]
 name = "numpy"
 version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bef41cbb417ea83b30525259e30ccef6af39b31c240bda578889494c5392d331"
 dependencies = [
  "libc",
  "ndarray",
@@ -286,7 +288,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "14c39fd04924ca3a864207c66fc2cd7d22d7c016007f9ce846cbb9326331930a"
 
 [[package]]
-name = "tdigest_ext"
+name = "tdigest_rs"
 version = "0.1.0"
 dependencies = [
  "glidesort",
