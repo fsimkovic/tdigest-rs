@@ -9,7 +9,7 @@ quantile = 0.1
 n = 16_000
 n_arrays = 5000
 
-arrays = [np.random.randn(n).astype(np.float32) for i in range(n_arrays)]
+arrays = [np.random.randn(n).astype(np.float32) for _ in range(n_arrays)]
 
 t0 = time.time()
 tdigests = Parallel(backend="threading", verbose=3, n_jobs=-1)(

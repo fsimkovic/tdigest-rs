@@ -30,7 +30,7 @@ class TDigest:
     def create(cls, arr: np.ndarray, delta: float, sort_in_place: bool = False) -> "TDigest":
         if sort_in_place:
             arr.sort()
-        means, weights = create_from_array(arr, delta, not sort_in_place)
+        means, weights = create_from_array(arr, delta)
         return cls(means=means, weights=weights, delta=delta)
 
     def merge(self, other: "TDigest") -> "TDigest":

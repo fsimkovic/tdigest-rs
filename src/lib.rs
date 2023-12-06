@@ -1,55 +1,42 @@
-use numpy::ndarray::{ArrayViewD};
-use numpy::PyArray;
-use numpy::{
-    PyArrayDyn, PyReadonlyArrayDyn,
-};
-use pyo3::{
-    pymodule,
-    types::{PyModule},
-    PyResult, Python,
-};
-use std::{f32::consts::PI};
-use num_traits::{Float};
+use anyhow::Result;
+use numpy::ndarray::{Array1, ArrayView1};
+use numpy::{PyArray1, PyReadonlyArray1};
+use pyo3::prelude::*;
+use std::f32::consts::PI;
 
 const TAU: f32 = 2.0 * PI;
 
-fn scale_fn(q: f32, delta: f32) -> f32 {
-    delta / TAU * (2.0 * q - 1.0).asin()
+fn scale_fn(q: f32, delta: f32) -> Result<f32> {
+    Ok(delta / TAU * (2.0 * q - 1.0).asin())
 }
 
-#[derive(Debug)]
 struct TDigest {
     means: Vec<f32>,
-    weights: Vec<i64>
+    weights: Vec<i64>,
 }
 
-
 impl TDigest {
-    fn from_vec(mut vec: Vec<f32>, delta: f32, sort: bool) -> TDigest
-    {
-        if sort {
-            vec.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        }
-
-        let n = vec.len();
+    fn from_arr(arr: &ArrayView1<f32>, delta: f32) -> Result<TDigest> {
+        let n = arr.len();
         let percentile_increment: f32 = 1.0 / n as f32;
         let mut percentile: f32;
-        let mut k_lower = scale_fn(0.0, delta);
+        let mut k_lower = scale_fn(0.0, delta)?;
         let mut k_upper: f32;
         let mut start: usize = 0;
         let mut sum: f32 = 0.0;
 
-        let mut means: Vec<f32> = Vec::new();
-        let mut weights: Vec<i64> = Vec::new();
+        // NOTE: the most centroids we could have is equal to `n`
+        let mut means: Vec<f32> = Vec::with_capacity(n);
+        let mut weights: Vec<i64> = Vec::with_capacity(n);
 
-        for (i, val) in vec.iter().enumerate() {
+        for (i, val) in arr.iter().enumerate() {
             percentile = (i as f32 + 1.0) * percentile_increment;
-            k_upper = scale_fn(percentile, delta);
+            k_upper = scale_fn(percentile, delta)?;
             sum += val;
 
             if k_upper - k_lower > 1.0 {
                 let count = i - start + 1;
-                let centroid = (sum / (count as f32)) as f32;
+                let centroid = sum / (count as f32);
                 means.push(centroid);
                 weights.push(count as i64);
                 k_lower = k_upper;
@@ -57,34 +44,26 @@ impl TDigest {
                 sum = 0.0;
             }
         }
-        TDigest{means: means, weights: weights}
+        Ok(TDigest { means, weights })
     }
 }
 
-
+#[pyfunction]
+fn create_from_array<'py>(
+    py: Python<'py>,
+    arr: PyReadonlyArray1<f32>,
+    delta: f32,
+) -> PyResult<(&'py PyArray1<f32>, &'py PyArray1<i64>)> {
+    let vec = arr.as_array();
+    let tdigest = py.allow_threads(|| TDigest::from_arr(&vec, delta))?;
+    Ok((
+        PyArray1::from_vec(py, tdigest.means),
+        PyArray1::from_vec(py, tdigest.weights),
+    ))
+}
 
 #[pymodule]
-fn tdigest_rs<'py>(_py: Python<'py>, m: &'py PyModule) -> PyResult<()> {
-    fn create_from_array(x: ArrayViewD<'_, f32>, delta: f32, sort: bool) -> (Vec<f32>, Vec<i64>) {
-        let vec = x.into_owned().into_raw_vec();
-        let tdigest = TDigest::from_vec(vec.clone(), delta, sort);
-        (tdigest.means, tdigest.weights)
-    }
-
-    #[pyfn(m)]
-    #[pyo3(name = "create_from_array")]
-    fn create_from_array_py<'py>(
-        py: Python<'py>,
-        x: PyReadonlyArrayDyn<'py, f32>,
-        delta: f32,
-        sort: bool,
-    ) -> (&'py PyArrayDyn<f32>, &'py PyArrayDyn<i64>) {
-        let x = x.as_array();
-        let (means, weights) = py.allow_threads(|| create_from_array(x, delta, sort));
-        let means = PyArray::from_vec(py, means);
-        let weights = PyArray::from_vec(py, weights);
-        (means.to_dyn(), weights.to_dyn())
-    }
-
+fn tdigest_rs(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(create_from_array, m)?)?;
     Ok(())
 }
